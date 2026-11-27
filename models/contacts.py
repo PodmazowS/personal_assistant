@@ -14,7 +14,7 @@ class Name(Field):
 
 
 class Phone(Field):
-    """A contact phone number with validation."""
+    """A contact phone number"""
 
     def __init__(self, value: str):
         if not isinstance(value, str) or not re.fullmatch(
@@ -28,7 +28,7 @@ class Phone(Field):
 
 
 class Email(Field):
-    """A contact email address with validation."""
+    """A contact email address"""
 
     def __init__(self, value: str):
         pattern = (
