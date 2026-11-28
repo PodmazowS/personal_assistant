@@ -1,6 +1,7 @@
+import re
 from collections import UserDict
 from collections.abc import Iterable
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from .fields import Field
 
@@ -13,24 +14,76 @@ class Name(Field):
 
 
 class Phone(Field):
-    """A contact phone number."""
+    """A contact phone number"""
+
+    def __init__(self, value: str):
+        if not isinstance(value, str) or not re.fullmatch(
+            r"[0-9]{10}", value
+        ):
+            raise ValueError(
+                "Phone number must contain exactly 10 digits."
+            )
+
+        super().__init__(value)
 
 
 class Email(Field):
-    """A contact email address."""
+    """A contact email address"""
 
+    def __init__(self, value: str):
+        pattern = (
+            r"[A-Za-z0-9_%+-]+"
+            r"(?:\.[A-Za-z0-9_%+-]+)*"
+            r"@"
+            r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+"
+            r"[A-Za-z]{2,}"
+        )
+
+        if not isinstance(value, str) or not re.fullmatch(
+            pattern, value
+        ):
+            raise ValueError("Invalid email address.")
+
+        super().__init__(value)
 
 class Address(Field):
     """A contact's physical address."""
 
 
 class Birthday(Field):
-    """A contact's date of birth, without a time component."""
+    """A contact's date of birth with validation."""
 
-    def __init__(self, value: date):
-        if type(value) is not date:
-            raise ValueError("Birthday must be a datetime.date.")
-        super().__init__(value)
+    def __init__(self, value: str | date):
+
+        if isinstance(value, str):
+            try:
+                if not re.fullmatch(r"[0-9]{2}\.[0-9]{2}\.[0-9]{4}", value):
+                    raise ValueError
+
+                birthday = datetime.strptime(
+                    value, "%d.%m.%Y"
+                ).date()
+
+            except ValueError:
+                raise ValueError(
+                    "Invalid date format. Use DD.MM.YYYY."
+                )
+
+        elif type(value) is date:
+            birthday = value
+
+        else:
+            raise ValueError("Invalid birthday value.")
+
+        if birthday > date.today():
+            raise ValueError(
+                "Birthday cannot be in the future."
+            )
+
+        super().__init__(birthday)
+
+    def __str__(self):
+        return self.value.strftime("%d.%m.%Y")
 
 
 class Record:
@@ -43,18 +96,23 @@ class Record:
         phones: Iterable[str] = (),
         email: str | None = None,
         address: str | None = None,
-        birthday: date | None = None,
+        birthday: str | date | None = None,
     ):
         self.name = Name(name)
         if isinstance(phones, str):
             raise ValueError("Pass phone numbers as a collection of strings.")
-        self.phones = [Phone(number) for number in phones]
+        self.phones: list[Phone] = []
+        for number in phones:
+            self.add_phone(number)
         self.email = Email(email) if email is not None else None
         self.address = Address(address) if address is not None else None
         self.birthday = Birthday(birthday) if birthday is not None else None
 
     def add_phone(self, phone: str) -> None:
-        self.phones.append(Phone(phone))
+        new_phone = Phone(phone)
+        if self.find_phone(new_phone.value) is not None:
+            raise ValueError(f"Phone {new_phone.value} already exists for this contact.")
+        self.phones.append(new_phone)
 
     def find_phone(self, phone: str) -> Phone | None:
         for stored_phone in self.phones:
@@ -66,7 +124,10 @@ class Record:
         stored_phone = self.find_phone(old_phone)
         if stored_phone is None:
             raise ValueError("Phone number not found.")
-        self.phones[self.phones.index(stored_phone)] = Phone(new_phone)
+        validated_new = Phone(new_phone)
+        if old_phone != validated_new.value and self.find_phone(validated_new.value) is not None:
+            raise ValueError(f"Phone {validated_new.value} already exists for this contact.")
+        self.phones[self.phones.index(stored_phone)] = validated_new
 
     def remove_phone(self, phone: str) -> None:
         stored_phone = self.find_phone(phone)
@@ -123,3 +184,49 @@ class AddressBook(UserDict[str, Record]):
 
     def delete(self, name: str) -> None:
         del self.data[name.strip()]
+        
+    def get_upcoming_birthdays(self, days: int = 7) -> list:
+
+        if type(days) is not int or days < 0:
+            raise ValueError(
+                "Days must be a non-negative integer."
+            )
+
+        today = date.today()
+        end_date = today + timedelta(days=days)
+        upcoming_birthdays = []
+
+        for record in self.data.values():
+
+            if record.birthday is None:
+                continue
+
+            birthday = record.birthday.value
+
+            for year in range(today.year, end_date.year + 1):
+
+                try:
+                    birthday_this_year = birthday.replace(
+                        year=year
+                    )
+
+                except ValueError:
+                    birthday_this_year = date(year, 2, 28)
+
+                if today <= birthday_this_year <= end_date:
+
+                    upcoming_birthdays.append({
+                        "name": record.name.value,
+                        "birthday": birthday_this_year.strftime(
+                            "%d.%m.%Y"
+                        )
+                    })
+
+        upcoming_birthdays.sort(
+            key=lambda item: datetime.strptime(
+                item["birthday"], "%d.%m.%Y"
+            )
+        )
+
+        return upcoming_birthdays   
+    
