@@ -189,19 +189,16 @@ def show_birthday(args: list[str], book: AddressBook):
 
 @input_error
 def birthdays(args: list[str], book: AddressBook):
-    if not hasattr(book, "get_upcoming_birthdays"):
-        return "[yellow]Upcoming birthdays feature is not available yet.[/yellow]"
     days = int(args[0]) if args else 7
     upcoming = book.get_upcoming_birthdays(days)
     if not upcoming:
         return f"No birthdays in the next {days} days."
-    rows = [(item["name"], item["congratulation_date"]) for item in upcoming]
+    rows = [(item["name"], item["birthday"]) for item in upcoming]
     return build_table(
         title=f"Upcoming Birthdays (next {days} days)",
-        columns=("Name", "Congratulation Date"),
+        columns=("Name", "Birthday"),
         rows=rows,
     )
-
 
 @input_error
 def rename_contact(args: list[str], book: AddressBook):
@@ -284,7 +281,7 @@ def add_tag(args: list[str], notebook: Notebook):
 
 
 @input_error
-def remove_tag(args: list[str], notebook: Notebook):
+def remove_tag(args: list[str], notebook: Notebook) :
     title, tag, *_ = args
     note = notebook.find(title)
     if note is None:
@@ -303,14 +300,14 @@ def search_by_tag(args: list[str], notebook: Notebook):
 
 
 @input_error
-def sort_notes_by_tags(notebook: Notebook):
+def sort_notes_by_tags(notebook: Notebook) :
     sorted_notes = notebook.sort_by_tags()
     if not sorted_notes:
         return "Notebook is empty."
     return _notes_table("Notes Sorted by Tags", sorted_notes)
 
 
-def show_help():
+def show_help() -> Table:
     rows = [
         ("Contacts", f"{Command.ADD.value} <name> <phone>", "Add contact or new phone"),
         ("Contacts", f"{Command.CHANGE.value} <name> <old> <new>", "Change contact's phone"),

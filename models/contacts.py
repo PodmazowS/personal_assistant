@@ -96,18 +96,23 @@ class Record:
         phones: Iterable[str] = (),
         email: str | None = None,
         address: str | None = None,
-        birthday: date | None = None,
+        birthday: str | date | None = None,
     ):
         self.name = Name(name)
         if isinstance(phones, str):
             raise ValueError("Pass phone numbers as a collection of strings.")
-        self.phones = [Phone(number) for number in phones]
+        self.phones: list[Phone] = []
+        for number in phones:
+            self.add_phone(number)
         self.email = Email(email) if email is not None else None
         self.address = Address(address) if address is not None else None
         self.birthday = Birthday(birthday) if birthday is not None else None
 
     def add_phone(self, phone: str) -> None:
-        self.phones.append(Phone(phone))
+        new_phone = Phone(phone)
+        if self.find_phone(new_phone.value) is not None:
+            raise ValueError(f"Phone {new_phone.value} already exists for this contact.")
+        self.phones.append(new_phone)
 
     def find_phone(self, phone: str) -> Phone | None:
         for stored_phone in self.phones:
@@ -119,7 +124,10 @@ class Record:
         stored_phone = self.find_phone(old_phone)
         if stored_phone is None:
             raise ValueError("Phone number not found.")
-        self.phones[self.phones.index(stored_phone)] = Phone(new_phone)
+        validated_new = Phone(new_phone)
+        if old_phone != validated_new.value and self.find_phone(validated_new.value) is not None:
+            raise ValueError(f"Phone {validated_new.value} already exists for this contact.")
+        self.phones[self.phones.index(stored_phone)] = validated_new
 
     def remove_phone(self, phone: str) -> None:
         stored_phone = self.find_phone(phone)
